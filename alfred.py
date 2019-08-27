@@ -51,14 +51,35 @@ class Alfred(GenericBot):
         #         logger.info(f'[{ascesport_member.name}] has no role !')
 
         # Get count of emoji on pinned message
-        id = self.get_channel_id_by_name('accueil-et-annonces')
-        channel = self.get_channel(id)
-        messages = await channel.history(limit=10).flatten()
-        for message in messages:
-            for reaction in message.reactions:
-                users = await reaction.users().flatten()
-                logger.info(f'{reaction.emoji}: [{users}]')
+        # id = self.get_channel_id_by_name('accueil-et-annonces')
+        # channel = self.get_channel(id)
+        # messages = await channel.history(limit=10).flatten()
+        # for message in messages:
+        #     for reaction in message.reactions:
+        #         users = await reaction.users().flatten()
+        #         logger.info(f'{reaction.emoji}: [{users}]')
 
+        # EMOJI_POSITIVE = "\U0001F44D"
+        # EMOJI_NEGATIVE = "\U0001F44E"
+        id = self.get_channel_id_by_name('alfred-safe-house')
+        channel = self.get_channel(id)
+        e = discord.Embed(title="React with each of games you play on by clicking on the corresponding platform icon below.")
+        await channel.send("Role Assignment", embed=e)
+        my_last_message = await channel.history().get(author=self.user)
+        await my_last_message.pin()
+        await my_last_message.add_reaction(':LoL:615961262932623399')
+        await my_last_message.add_reaction(":apexlegends:615965083713142784")
+        await my_last_message.add_reaction(":csgo:615965136854712352")
+        await my_last_message.add_reaction(":dota2:615965157838946305")
+        await my_last_message.add_reaction(":fifa:615965174498721798")
+        await my_last_message.add_reaction(":fortnite:615965194727718912")
+        await my_last_message.add_reaction(":hearthstone:615965215086870528")
+        await my_last_message.add_reaction(":overwatch:615965258623746068")
+        await my_last_message.add_reaction(":pes:615965273983287306")
+        await my_last_message.add_reaction(":r6s:615965301535670273")
+        await my_last_message.add_reaction(":rocketleague:615965320019968052")
+        await my_last_message.add_reaction(":switch:615965332825309190")
+        await my_last_message.add_reaction(":wow:615965343105679362")
 
 
         # Introducing messages history
@@ -86,6 +107,7 @@ class Alfred(GenericBot):
         if message.author == self.user:
             return
         logger.info(f'[{message.author}] says [{message.content}]')
+
 
 if __name__ == '__main__':
     bot = Alfred()
