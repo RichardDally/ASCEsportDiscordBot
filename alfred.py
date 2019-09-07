@@ -17,6 +17,7 @@ class Alfred(GenericBot):
         super().__init__(description='Alfred the butler')
         self.role_assignment_channel_title = "role-assignment"
 
+        # List all reactions representing games played by our community !
         self.reaction_to_role = {":LoL:615961262932623399":          613731456556072990,
                                  ":apexlegends:615965083713142784":  614008604961538048,
                                  ":csgo:615965136854712352":         614008371506577408,
@@ -33,6 +34,20 @@ class Alfred(GenericBot):
                                  ":cod:617069598730223696":          617069986321530970,
                                  ":battlefield:617069580229148732":  614372546640347147,
                                  ":hots:617069644133695488":         614368339200049152}
+
+    async def on_ready(self):
+        """
+        Entry point for Alfred
+        """
+        logger.debug('On ready')
+
+        # await self.assign_new_joiners()
+        # await self.assign_members()
+        # await self.logout()
+
+        # Display all Guild emojis
+        # for emoji in self.get_emojis():
+        #     logger.info(emoji)
 
     async def on_command_completion(self, ctx):
         logger.debug('On command completion')
@@ -51,6 +66,10 @@ class Alfred(GenericBot):
         return str(reaction).replace('<', '').replace('>', '')
 
     async def add_missing_reactions(self, role_assignment_message):
+        """"
+        Ensure every games are available in reactions.
+        If not add missing reaction to role_assignment_message.
+        """
         reactions_to_add = list(self.reaction_to_role.keys())
 
         if role_assignment_message.reactions:
@@ -131,10 +150,8 @@ class Alfred(GenericBot):
                 members_reactions[member].append(role_to_add)
         return members_reactions
 
-    async def on_ready(self):
-        logger.debug('On ready')
-
-        # Retrieve role assignment pinned message
+    async def assign_members(self):
+        # Step 1: retrieve role assignment pinned message
         role_assignment_message = await self.get_role_assignment_pinned_message()
         if role_assignment_message is None:
             role_assignment_message = await self.create_role_assignment_pinned_message()
@@ -144,9 +161,12 @@ class Alfred(GenericBot):
 
         # Step 3: retrieve only role reactions to apply (compare existing roles with reactions)
         role_reactions = await self.get_assignment_role_reactions(role_assignment_message)
-        logger.debug(role_reactions)
+        if not role_reactions:
+            logger.info("Nothing to do")
+            return
 
         # Debug purpose
+        logger.debug(f"Roles reactions [{role_reactions}]")
         for member, role_identifiers in role_reactions.items():
             # very verbose log
             for role_identifier in role_identifiers:
@@ -162,79 +182,47 @@ class Alfred(GenericBot):
                 logger.info(f"Adding role [{role.name}] to [{member.name}]")
                 await member.add_roles(role)
 
-        # Display all Guild emojis
-        # for emoji in self.get_emojis():
-        #     logger.info(emoji)
+    def get_new_joiners(self):
+        """
+        New joiners have only one role: @everyone
+        """
+        new_joiners = []
+        discord_members = self.get_all_members()
+        for discord_member in discord_members:
+            # logger.info(f"Member [{discord_member.name}]")
+            # logger.info(f"Member roles [{discord_member.roles}]")
+            if len(discord_member.roles) == 1 and discord_member.roles[0].name == "@everyone":
+                new_joiners.append(discord_member)
+        return new_joiners
 
-        # await self.send_message(channel="alfred-safe-house", message="Last test")
-        # await self.get_role_assignment_pinned_message()
+    async def assign_new_joiners(self):
+        """
+        TODO: WORK IN PROGRESS
+        Detect new joiners that didn't come and say hello to presentation channel
+        """
+        new_joiners = self.get_new_joiners()
+        # for new_joiner in new_joiners:
+        #     logger.info(new_joiner.name)
+        #     logger.info(new_joiner.roles)
 
-        # async for guild in self.fetch_guilds():
-        #     logger.info(f'Guild [{guild.name}]')
-        #     for role in guild.roles:
-        #         logger.info(f'Role [{role}]')
+        # new_joiner_nicknames = [f"{new_joiner.name}#{new_joiner.id}" for new_joiner in new_joiners]
+        # new_joiner_nicknames = [f"{new_joiner.name}#{new_joiner.id}" for new_joiner in new_joiners]
+        # logger.info(new_joiner_nicknames)
 
-        # ascesport_members = {}
-        # discord_members = self.get_all_members()
-        # for discord_member in discord_members:
-        #     if discord_member.id not in ascesport_members.keys():
-        #         if discord_member.name == 'JohnRambu':
-        #             logger.info(f'JohnRambu [{discord_member}]')
-        #         ascesport_member = ASCEsportMember(discord_member.id, discord_member.name)
-        #         # Add roles
-        #         for role in discord_member.roles:
-        #             if role.name != '@everyone':
-        #                 logger.info(f'Adding role [{role}] to [{discord_member.name}#{discord_member.id}]')
-        #                 ascesport_member.roles.append(role)
-        #         ascesport_members[discord_member.id] = ascesport_member
-        # for ascesport_member in ascesport_members.values():
-        #     if not ascesport_member.roles:
-        #         logger.info(f'[{ascesport_member.name}] has no role !')
+        id = self.get_channel_id_by_name('présentations-nouveaux-membres')
+        channel = self.get_channel(id)
+        messages = channel.history()
+        messages_by_author = {}
+        async for message in messages:
+            messages_by_author[message.author] = message
+            # logger.info(f'[{message.author}]: [{message.content}]')
 
-        # Get count of emoji on pinned message
-        # id = self.get_channel_id_by_name('accueil-et-annonces')
-        # channel = self.get_channel(id)
-        # messages = await channel.history(limit=10).flatten()
-        # for message in messages:
-        #     for reaction in message.reactions:
-        #         users = await reaction.users().flatten()
-        #         logger.info(f'{reaction.emoji}: [{users}]')
+        for author, message in messages_by_author.items():
+            logger.info(f'[{author}]: [{message.content}]')
 
-        # EMOJI_POSITIVE = "\U0001F44D"
-        # EMOJI_NEGATIVE = "\U0001F44E"
-        # id = self.get_channel_id_by_name('alfred-safe-house')
-        # channel = self.get_channel(id)
-        # await channel.send("Role Assignment", embed=e)
-        # e = discord.Embed(title="React with each of games you play on by clicking on the corresponding platform icon below.")
-        # await channel.send("Role Assignment", embed=e)
-        # my_last_message = await channel.history().get(author=self.user)
-        # await my_last_message.pin()
-        # await my_last_message.add_reaction(':LoL:615961262932623399')
-        # await my_last_message.add_reaction(":apexlegends:615965083713142784")
-        # await my_last_message.add_reaction(":csgo:615965136854712352")
-        # await my_last_message.add_reaction(":dota2:615965157838946305")
-        # await my_last_message.add_reaction(":fifa:615965174498721798")
-        # await my_last_message.add_reaction(":fortnite:615965194727718912")
-        # await my_last_message.add_reaction(":hearthstone:615965215086870528")
-        # await my_last_message.add_reaction(":overwatch:615965258623746068")
-        # await my_last_message.add_reaction(":pes:615965273983287306")
-        # await my_last_message.add_reaction(":r6s:615965301535670273")
-        # await my_last_message.add_reaction(":rocketleague:615965320019968052")
-        # await my_last_message.add_reaction(":switch:615965332825309190")
-        # await my_last_message.add_reaction(":wow:615965343105679362")
-
-
-        # Introducing messages history
-        # id = self.get_channel_id_by_name('présentations-nouveaux-membres')
-        # channel = self.get_channel(id)
-        # messages = await channel.history(limit=10).flatten()
-        # for message in messages:
+        # messages = channel.history().filter(lambda m: m.author in new_joiners)
+        # async for message in messages:
         #     logger.info(f'[{message.author}]: [{message.content}]')
-        # logger.info('finished')
-
-        # Retrieve users that reacted on message
-        # users = await reaction.users().flatten()
-
 
     async def on_reaction_add(self, reaction, user):
         logger.info(f'[{user}] added [{reaction.emoji}] on [{reaction.message}]')
