@@ -90,6 +90,16 @@ class Alfred(GenericBot):
         for role in roles:
             logger.info(f"Role [{role.name}] [{role.id}]")
 
+    def get_role(self, role_name: str):
+        """
+        Find a role by name
+        """
+        for guild in self.guilds:
+            for role in guild.roles:
+                if role.name == role_name:
+                    return role
+        return None
+
     async def get_assignment_role_reactions(self, role_assignment_message):
         members_reactions = {}
         logger.debug(f"Reactions size [{len(role_assignment_message.reactions)}]")
@@ -259,6 +269,15 @@ class Alfred(GenericBot):
                     continue
                 roles[role.id] = role
         return roles
+
+    async def on_member_join(self, member):
+        """
+        Automatically assign "Non présentés" role to new joiners.
+        """
+        if not member.bot:
+            role = self.get_role("Non présentés")
+            await member.add_roles(role)
+            logger.debug(f'Member [{member.name}] is now assigned to [{role.name}]')
 
 
 if __name__ == '__main__':
