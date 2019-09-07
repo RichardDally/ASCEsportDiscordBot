@@ -12,6 +12,8 @@ class GenericBot(commands.Bot):
         self.tasks = {}
         self.extra_tasks = {}
         self._stopped = asyncio.Event(loop=self.loop)
+        # TOKEN environment variable will be created by reading .env file
+        # Create a file named .env containing one line: TOKEN=<YOUR DISCORD TOKEN>
         load_dotenv()
 
     def get_channel_id_by_name(self, channel_name):
