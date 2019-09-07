@@ -1,4 +1,5 @@
 import discord
+import asyncio
 from loguru import logger
 from generic_bot import GenericBot
 
@@ -15,6 +16,8 @@ class ASCEsportMember:
 class Alfred(GenericBot):
     def __init__(self):
         super().__init__(description='Alfred the butler')
+        self.terminated = False
+        self.role_assignment_message = None
         self.role_assignment_channel_title = "role-assignment"
 
         # List all reactions representing games played by our community !
@@ -41,6 +44,12 @@ class Alfred(GenericBot):
         """
         logger.debug('On ready')
 
+        while not self.terminated:
+            await self.assign_members()
+            sleep_time_in_seconds = 3600
+            logger.debug(f"Sleeping for [{sleep_time_in_seconds}] secs")
+            await asyncio.sleep(sleep_time_in_seconds)
+
         # await self.assign_new_joiners()
         # await self.assign_members()
         # await self.logout()
@@ -49,8 +58,8 @@ class Alfred(GenericBot):
         # for emoji in self.get_emojis():
         #     logger.info(emoji)
 
-    async def on_command_completion(self, ctx):
-        logger.debug('On command completion')
+    # async def on_command_completion(self, ctx):
+    #     logger.debug('On command completion')
 
     async def create_role_assignment_pinned_message(self):
         id = self.get_channel_id_by_name(self.role_assignment_channel_title)
@@ -84,11 +93,6 @@ class Alfred(GenericBot):
             for reaction in reactions_to_add:
                 await role_assignment_message.add_reaction(reaction)
 
-    async def send_message(self, channel, message):
-        id = self.get_channel_id_by_name(channel)
-        channel = self.get_channel(id)
-        await channel.send(message)
-
     async def get_role_assignment_pinned_message(self):
         id = self.get_channel_id_by_name(self.role_assignment_channel_title)
         channel = self.get_channel(id)
@@ -104,24 +108,13 @@ class Alfred(GenericBot):
         else:
             logger.debug(f"Adding [{role.name}] was not necessary for [{member.name}]")
 
-    def log_regular_roles(self):
-        roles = self.get_game_roles()
-        for role in roles:
-            logger.info(f"Role [{role.name}] [{role.id}]")
-
-    def get_role(self, role_name: str):
-        """
-        Find a role by name
-        """
-        for guild in self.guilds:
-            for role in guild.roles:
-                if role.name == role_name:
-                    return role
-        return None
+    def is_member_presentation_done(self, member):
+        not_introduced_role = self.get_role("Non présentés")
+        return not_introduced_role not in member.roles
 
     async def get_assignment_role_reactions(self, role_assignment_message):
         members_reactions = {}
-        logger.debug(f"Reactions size [{len(role_assignment_message.reactions)}]")
+        reactions_to_remove_by_member = {}
         for reaction in role_assignment_message.reactions:
             users = await reaction.users().flatten()
 
@@ -132,6 +125,13 @@ class Alfred(GenericBot):
 
             for member in users:
                 if member == self.user:
+                    continue
+
+                # Record reaction to remove if member has not introduced itself
+                if not self.is_member_presentation_done(member):
+                    if member not in reactions_to_remove_by_member:
+                        reactions_to_remove_by_member[member] = []
+                    reactions_to_remove_by_member[member].append(reaction)
                     continue
 
                 role_already_assigned = False
@@ -148,33 +148,53 @@ class Alfred(GenericBot):
                     members_reactions[member] = []
                 # Add role to assign for this member
                 members_reactions[member].append(role_to_add)
+
+        # Remove member reactions and send a DM to warn member
+        for member, reactions in reactions_to_remove_by_member.items():
+            for reaction in reactions:
+                await role_assignment_message.remove_reaction(reaction, member)
+            logger.info(f"Member [{member.name}] has 'Non présentés' role, admin must validate first.")
+            if member.dm_channel is None:
+                await member.create_dm()
+            await member.dm_channel.send(
+                f"Bonjour {member.name}, veuillez vous présentez dans le canal #présentations-nouveaux-membres "
+                f"avant de choisir les jeux auxquels vous jouez (vos réactions ont été retirées).\n"
+                f"Si vous êtes déjà présenté, veuillez attendre qu'un admin valide votre présentation.\n"
+                f"Merci de votre compréhension !")
+
         return members_reactions
 
-    async def assign_members(self):
+    async def refresh_assignment_pinned_message(self):
         # Step 1: retrieve role assignment pinned message
-        role_assignment_message = await self.get_role_assignment_pinned_message()
-        if role_assignment_message is None:
-            role_assignment_message = await self.create_role_assignment_pinned_message()
+        self.role_assignment_message = await self.get_role_assignment_pinned_message()
+        if self.role_assignment_message is None:
+            self.role_assignment_message = await self.create_role_assignment_pinned_message()
 
         # Step 2: add missing reactions (e.g. new game added => new channel => new emoji)
-        await self.add_missing_reactions(role_assignment_message)
+        await self.add_missing_reactions(self.role_assignment_message)
 
-        # Step 3: retrieve only role reactions to apply (compare existing roles with reactions)
-        role_reactions = await self.get_assignment_role_reactions(role_assignment_message)
+    async def assign_members(self):
+        """
+        Active assignment: iterate through reactions to assign new roles
+        """
+        await self.refresh_assignment_pinned_message()
+
+        # Step 1: retrieve only role reactions to apply (compare existing roles with reactions)
+        role_reactions = await self.get_assignment_role_reactions(self.role_assignment_message)
         if not role_reactions:
             logger.info("Nothing to do")
             return
 
         # Debug purpose
-        logger.debug(f"Roles reactions [{role_reactions}]")
-        for member, role_identifiers in role_reactions.items():
-            # very verbose log
-            for role_identifier in role_identifiers:
-                for key, value in self.reaction_to_role.items():
-                    if value == role_identifier:
-                        logger.debug(f"Member [{member.name} should be in [{key}]")
+        # logger.debug(f"Roles reactions [{role_reactions}]")
+        # for member, role_identifiers in role_reactions.items():
+        #     # very verbose log
+        #     for role_identifier in role_identifiers:
+        #         for key, value in self.reaction_to_role.items():
+        #             if value == role_identifier:
+        #                 logger.debug(f"Member [{member.name} should be in [{key}]")
 
-        # Step 4: add role to members that reacted on self-assignment message emojis
+        # Step 2: add role to members that reacted on self-assignment message emojis
         game_roles = self.get_game_roles()
         for member, role_identifiers in role_reactions.items():
             for role_identifier in role_identifiers:
@@ -184,7 +204,7 @@ class Alfred(GenericBot):
 
     def get_new_joiners(self):
         """
-        New joiners have only one role: @everyone
+        WORK IN PROGRESS
         """
         new_joiners = []
         discord_members = self.get_all_members()
@@ -224,30 +244,46 @@ class Alfred(GenericBot):
         # async for message in messages:
         #     logger.info(f'[{message.author}]: [{message.content}]')
 
-    async def on_reaction_add(self, reaction, user):
-        logger.info(f'[{user}] added [{reaction.emoji}] on [{reaction.message}]')
+    # async def on_reaction_add(self, reaction, user):
+    #     """
+    #     Passive assignment: add role upon reaction
+    #     This does not work as expected.....
+    #     """
+    #     if self.role_assignment_message is None:
+    #         logger.critical("Role assignment message is not available...")
+    #         await self.logout()
+    #         return
+    #
+    #     logger.debug(f"[TO REMOVE] user type {type(user)}")
+    #
+    #     if reaction.message == self.role_assignment_message:
+    #         logger.info(f'[{user}] added [{reaction.emoji}] on [{reaction.message}]')
+    #
+    #         cleaned_reaction = self.get_cleaned_reaction_str(reaction)
+    #         role_to_add = self.reaction_to_role[cleaned_reaction]
+    #
+    #         # Ensure member has not the role already
+    #         for existing_role in user.roles:
+    #             if existing_role.id == role_to_add:
+    #                 return
+    #
+    #         logger.info(f"Adding role [{role_to_add.name}] to [{user.name}]")
+    #         await user.add_roles(role_to_add)
 
-    async def on_reaction_remove(self, reaction, user):
-        logger.info(f'[{user}] removed [{reaction.emoji}] on [{reaction.message}]')
+    # async def on_reaction_remove(self, reaction, user):
+    #     logger.info(f'[{user}] removed [{reaction.emoji}] on [{reaction.message}]')
 
-    async def on_reaction_clear(self, message, reactions):
-        logger.info(f'[{reactions}] has been removed from [{message}]')
+    # async def on_reaction_clear(self, message, reactions):
+    #     logger.info(f'[{reactions}] has been removed from [{message}]')
 
-    async def on_restart_message(self, _):
-        print("Restarting...")
-        await self.logout()
+    # async def on_restart_message(self, _):
+    #     print("Restarting...")
+    #     await self.logout()
 
     async def on_message(self, message):
         if message.author == self.user:
             return
         logger.info(f'[{message.author}] says [{message.content}]')
-
-    def get_emojis(self):
-        result = []
-        for guild in self.guilds:
-            for emoji in guild.emojis:
-                result.append(emoji)
-        return result
 
     def get_game_roles(self) -> dict:
         roles = {}
@@ -278,8 +314,10 @@ if __name__ == '__main__':
         error = True
         error_message = 'Invalid credentials'
     except KeyboardInterrupt:
+        bot.terminated = True
         bot.loop.run_until_complete(bot.logout())
     except Exception as exception:
+        bot.terminated = True
         error = True
         error_message = exception
         bot.loop.run_until_complete(bot.logout())

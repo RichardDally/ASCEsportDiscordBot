@@ -16,11 +16,38 @@ class GenericBot(commands.Bot):
         # Create a file named .env containing one line: TOKEN=<YOUR DISCORD TOKEN>
         load_dotenv()
 
+    def get_role(self, role_name: str):
+        """
+        Find a role by name
+        """
+        for guild in self.guilds:
+            for role in guild.roles:
+                if role.name == role_name:
+                    return role
+        return None
+
+    def get_emojis(self):
+        result = []
+        for guild in self.guilds:
+            for emoji in guild.emojis:
+                result.append(emoji)
+        return result
+
+    def log_regular_roles(self):
+        roles = self.get_game_roles()
+        for role in roles:
+            logger.info(f"Role [{role.name}] [{role.id}]")
+
     def get_channel_id_by_name(self, channel_name):
         for channel in self.get_all_channels():
             if channel.name == channel_name:
                 return channel.id
         return None
+
+    async def send_message(self, channel, message):
+        id = self.get_channel_id_by_name(channel)
+        channel = self.get_channel(id)
+        await channel.send(message)
 
     async def logout(self):
         logger.debug('Logout')
