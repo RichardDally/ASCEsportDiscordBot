@@ -107,11 +107,8 @@ class Alfred(GenericBot):
                 if member == self.user:
                     continue
 
-                # Record reaction to remove if member has not introduced itself
+                # Do not add member not yet introduced to role assignment
                 if not self.is_member_presentation_done(member):
-                    if member not in reactions_to_remove_by_member:
-                        reactions_to_remove_by_member[member] = []
-                    reactions_to_remove_by_member[member].append(reaction)
                     continue
 
                 role_already_assigned = False
@@ -128,19 +125,6 @@ class Alfred(GenericBot):
                     members_reactions[member] = []
                 # Add role to assign for this member
                 members_reactions[member].append(role_to_add)
-
-        # Remove member reactions and send a DM to warn member
-        for member, reactions in reactions_to_remove_by_member.items():
-            for reaction in reactions:
-                await role_assignment_message.remove_reaction(reaction, member)
-            logger.info(f"Member [{member.name}] has 'Non présentés' role, admin must validate first.")
-            if member.dm_channel is None:
-                await member.create_dm()
-            await member.dm_channel.send(
-                f"Bonjour {member.name}, veuillez vous présentez dans le canal #présentations-nouveaux-membres "
-                f"avant de choisir les jeux auxquels vous jouez (vos réactions ont été retirées).\n"
-                f"Si vous êtes déjà présenté, veuillez attendre qu'un admin valide votre présentation.\n"
-                f"Merci de votre compréhension !")
 
         return members_reactions
 
