@@ -4,15 +4,6 @@ from loguru import logger
 from generic_bot import GenericBot
 
 
-class ASCEsportMember:
-    def __init__(self, unique_identifier, name):
-        self.unique_identifier = unique_identifier
-        self.name = name
-        self.roles = []
-        self.games = []
-        self.mail_pro = None
-
-
 class Alfred(GenericBot):
     def __init__(self):
         super().__init__(description='Alfred the butler')
@@ -49,17 +40,6 @@ class Alfred(GenericBot):
             sleep_time_in_seconds = 3600
             logger.debug(f"Sleeping for [{sleep_time_in_seconds}] secs")
             await asyncio.sleep(sleep_time_in_seconds)
-
-        # await self.assign_new_joiners()
-        # await self.assign_members()
-        # await self.logout()
-
-        # Display all Guild emojis
-        # for emoji in self.get_emojis():
-        #     logger.info(emoji)
-
-    # async def on_command_completion(self, ctx):
-    #     logger.debug('On command completion')
 
     async def create_role_assignment_pinned_message(self):
         id = self.get_channel_id_by_name(self.role_assignment_channel_title)
@@ -185,15 +165,6 @@ class Alfred(GenericBot):
             logger.info("Nothing to do")
             return
 
-        # Debug purpose
-        # logger.debug(f"Roles reactions [{role_reactions}]")
-        # for member, role_identifiers in role_reactions.items():
-        #     # very verbose log
-        #     for role_identifier in role_identifiers:
-        #         for key, value in self.reaction_to_role.items():
-        #             if value == role_identifier:
-        #                 logger.debug(f"Member [{member.name} should be in [{key}]")
-
         # Step 2: add role to members that reacted on self-assignment message emojis
         game_roles = self.get_game_roles()
         for member, role_identifiers in role_reactions.items():
@@ -201,84 +172,6 @@ class Alfred(GenericBot):
                 role = game_roles[role_identifier]
                 logger.info(f"Adding role [{role.name}] to [{member.name}]")
                 await member.add_roles(role)
-
-    def get_new_joiners(self):
-        """
-        WORK IN PROGRESS
-        """
-        new_joiners = []
-        discord_members = self.get_all_members()
-        for discord_member in discord_members:
-            # logger.info(f"Member [{discord_member.name}]")
-            # logger.info(f"Member roles [{discord_member.roles}]")
-            if len(discord_member.roles) == 1 and discord_member.roles[0].name == "@everyone":
-                new_joiners.append(discord_member)
-        return new_joiners
-
-    async def assign_new_joiners(self):
-        """
-        TODO: WORK IN PROGRESS
-        Detect new joiners that didn't come and say hello to presentation channel
-        """
-        new_joiners = self.get_new_joiners()
-        # for new_joiner in new_joiners:
-        #     logger.info(new_joiner.name)
-        #     logger.info(new_joiner.roles)
-
-        # new_joiner_nicknames = [f"{new_joiner.name}#{new_joiner.id}" for new_joiner in new_joiners]
-        # new_joiner_nicknames = [f"{new_joiner.name}#{new_joiner.id}" for new_joiner in new_joiners]
-        # logger.info(new_joiner_nicknames)
-
-        id = self.get_channel_id_by_name('présentations-nouveaux-membres')
-        channel = self.get_channel(id)
-        messages = channel.history()
-        messages_by_author = {}
-        async for message in messages:
-            messages_by_author[message.author] = message
-            # logger.info(f'[{message.author}]: [{message.content}]')
-
-        for author, message in messages_by_author.items():
-            logger.info(f'[{author}]: [{message.content}]')
-
-        # messages = channel.history().filter(lambda m: m.author in new_joiners)
-        # async for message in messages:
-        #     logger.info(f'[{message.author}]: [{message.content}]')
-
-    # async def on_reaction_add(self, reaction, user):
-    #     """
-    #     Passive assignment: add role upon reaction
-    #     This does not work as expected.....
-    #     """
-    #     if self.role_assignment_message is None:
-    #         logger.critical("Role assignment message is not available...")
-    #         await self.logout()
-    #         return
-    #
-    #     logger.debug(f"[TO REMOVE] user type {type(user)}")
-    #
-    #     if reaction.message == self.role_assignment_message:
-    #         logger.info(f'[{user}] added [{reaction.emoji}] on [{reaction.message}]')
-    #
-    #         cleaned_reaction = self.get_cleaned_reaction_str(reaction)
-    #         role_to_add = self.reaction_to_role[cleaned_reaction]
-    #
-    #         # Ensure member has not the role already
-    #         for existing_role in user.roles:
-    #             if existing_role.id == role_to_add:
-    #                 return
-    #
-    #         logger.info(f"Adding role [{role_to_add.name}] to [{user.name}]")
-    #         await user.add_roles(role_to_add)
-
-    # async def on_reaction_remove(self, reaction, user):
-    #     logger.info(f'[{user}] removed [{reaction.emoji}] on [{reaction.message}]')
-
-    # async def on_reaction_clear(self, message, reactions):
-    #     logger.info(f'[{reactions}] has been removed from [{message}]')
-
-    # async def on_restart_message(self, _):
-    #     print("Restarting...")
-    #     await self.logout()
 
     async def on_message(self, message):
         if message.author == self.user:
